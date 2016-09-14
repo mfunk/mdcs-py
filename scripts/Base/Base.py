@@ -14,7 +14,7 @@
 #------------------------------------------------------------------------------
 # Name: Base.py
 # Description: Base class used by MDCS/All Raster Solutions components.
-# Version: 20151209
+# Version: 20160602
 # Requirements: ArcGIS 10.1 SP1
 # Author: Esri Imagery Workflows team
 #------------------------------------------------------------------------------
@@ -646,15 +646,29 @@ class Base(object):
     def updateART(self, doc, workspace, dataset):
         if (doc == None):
             return False
-
         if (workspace.strip() == ''
         and dataset.strip() == ''):
             return False        # nothing to do.
-
         try:
+            nodeName = 'Key'
+            node_list = doc.getElementsByTagName(nodeName)
+            for node in node_list:
+                if (node.hasChildNodes()):
+                    _nValue = node.firstChild.nodeValue
+                    if (_nValue):
+                        _nValue = _nValue.lower()
+                        if (_nValue == 'dem' or
+                            _nValue == 'database'):
+                            _node = node.nextSibling
+                            while(_node):
+                                if (_node.hasChildNodes() and
+                                    _node.firstChild.nodeValue):
+                                    _node.firstChild.nodeValue = '{}'.format(
+                                    os.path.join(workspace, dataset) if _nValue == 'dem' else workspace)
+                                    break
+                                _node = _node.nextSibling
             nodeName = 'NameString'
             node_list = doc.getElementsByTagName(nodeName)
-
             for node in node_list:
                 if (node.hasChildNodes() == True):
                     vals = node.firstChild.nodeValue.split(';')
@@ -666,44 +680,29 @@ class Base(object):
                             if (vs_.find('workspace') > 0):
                                 if (workspace != ''):
                                     vs[1] = ' ' + workspace
-                                    if (node.nextSibling != None):
-                                        if (node.nextSibling.nextSibling.nodeName == 'PathName'):
-                                            node.nextSibling.nextSibling.firstChild.nodeValue = workspace
-
+                                    _node = node.nextSibling
+                                    while(_node):
+                                        if (_node.nodeName == 'PathName'):
+                                            _node.firstChild.nodeValue = workspace
+                                            break
+                                        _node = _node.nextSibling
                             elif (vs_.find('rasterdataset') > 0):
                                 if (dataset != ''):
                                     vs[1] = ' ' + dataset
-                                    if (node.previousSibling != None):
-                                        if (node.previousSibling.previousSibling.nodeName == 'Name'):
-                                            node.previousSibling.previousSibling.firstChild.nodeValue = dataset
+                                    _node = node.previousSibling
+                                    while(_node):
+                                        if (_node.nodeName == 'Name'):
+                                            _node.firstChild.nodeValue = dataset
+                                            break
+                                        _node = _node.previousSibling
                         upd_buff.append('='.join(vs))
-
                     if (len(upd_buff) > 0):
                         upd_nodeValue = ';'.join(upd_buff)
                         node.firstChild.nodeValue = upd_nodeValue
-
-            nodeName = 'ConnectionProperties'
-            node_list = doc.getElementsByTagName(nodeName)
-            found = False
-            for node in node_list:      # only one node should exist.
-                for n in node.firstChild.nextSibling.childNodes:
-                    if (n.nextSibling != None):
-                        if (n.nextSibling.firstChild != None):
-                            if (n.nextSibling.firstChild.nextSibling.nodeName.lower() == 'key'):
-                                if (n.nextSibling.firstChild.nextSibling.firstChild.nodeValue.lower() == 'database'):
-                                    n.nextSibling.firstChild.nextSibling.nextSibling.nextSibling.firstChild.nodeValue  = workspace
-                                    found = True
-                                    break;
-                if (found == True):
-                    break
         except Exception as inst:
             self.log(str(inst), self.const_critical_text)
             return False
-
         return True
-
-
-
 
     def getInternalPropValue(self, dic, key):
         if (key in dic.keys()):
